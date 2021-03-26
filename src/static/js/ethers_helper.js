@@ -1042,6 +1042,17 @@ async function getToken(app, tokenAddress, stakingAddress) {
     return getErc20(app, null, tokenAddress, stakingAddress)
   }
   const type = window.localStorage.getItem(tokenAddress);
+  if(type == "bep20"){
+    try {
+      const erc20 = new ethcall.Contract(tokenAddress, ERC20_ABI);
+      const _name = await app.ethcallProvider.all([erc20.name()]);
+      const erc20tok = await getErc20(app, erc20, tokenAddress, stakingAddress);
+      window.localStorage.setItem(tokenAddress, "erc20");
+      return erc20tok;
+    }
+    catch(err) {
+    }
+  }
   //getTokenWeights
   if (type) return getStoredToken(app, tokenAddress, stakingAddress, type);
   try {
