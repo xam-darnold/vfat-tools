@@ -100,14 +100,22 @@ async function load_1inchPoolInfo(App, tokens, prices, stakingAbi, stakingAddres
 
     let rewards = [];
     const tokenRewards = await STAKING_POOL.tokenRewards(0);
-    const tokenRewards1 = await STAKING_POOL.tokenRewards(1);
+    const tokenRewards1 = await STAKING_POOL.tokenRewards(1); //edw vgazei error an den exei rewards. To eida me breakpoint
+    const earned0 = await STAKING_POOL.earned(0, App.YOUR_ADDRESS);
+    const earned1 = await STAKING_POOL.earned(1, App.YOUR_ADDRESS);
+    if(tokenRewards1){
+      let rewards1 = getRewards(tokenRewards, earned0);
+      let rewards2 = getRewards(tokenRewards1, earned1);
+      rewards.push(rewards1);
+      rewards.push(rewards2)
+    }
+    let rewards0 = getRewards(tokenRewards, earned0);
+    rewards.push(rewards0);
 
     if (!STAKING_POOL.callStatic[stakeTokenFunction]) {
       console.log("Couldn't find stake function ", stakeTokenFunction);
     }
     const stakeTokenAddress = await STAKING_POOL.callStatic[stakeTokenFunction]();
-
-    const rewardTokenAddress = tokenRewards.gift;
 
     var stakeToken = await getToken(App, stakeTokenAddress, stakingAddress);
 
@@ -119,51 +127,51 @@ async function load_1inchPoolInfo(App, tokens, prices, stakingAbi, stakingAddres
 
     await getNewPricesAndTokens(App, tokens, prices, newAddresses, stakingAddress);
 
-    const rewardToken = getParameterCaseInsensitive(tokens, rewardTokenAddress);
-
-    const rewardTokenTicker = rewardToken.symbol;
-
     const poolPrices = getPoolPrices(tokens, prices, stakeToken);
 
     const stakeTokenTicker = poolPrices.stakeTokenTicker;
 
     const stakeTokenPrice =
         prices[stakeTokenAddress]?.usd ?? getParameterCaseInsensitive(prices, stakeTokenAddress)?.usd;
-    const rewardTokenPrice = getParameterCaseInsensitive(prices, rewardTokenAddress)?.usd;
 
-    const periodFinish = tokenRewards.periodFinish;
-    const rewardRate = tokenRewards.rewardRate;
     const balance = await STAKING_POOL.balanceOf(App.YOUR_ADDRESS);
-    const _earned = await STAKING_POOL.earned(0, App.YOUR_ADDRESS);
-
-    const weeklyRewards = (Date.now() / 1000 > periodFinish) ? 0 : rewardRate / 1e18 * 604800;
-
-    const usdPerWeek = weeklyRewards * rewardTokenPrice;
-
     const staked_tvl = poolPrices.staked_tvl;
-
-    const userStaked = balance / 10 ** stakeToken.decimals;
-
     const userUnstaked = stakeToken.unstaked;
-
-    const earned = _earned / 10 ** rewardToken.decimals;
+    const userStaked = balance / 10 ** stakeToken.decimals;
 
     return  {
       stakingAddress,
       poolPrices,
       stakeTokenAddress,
-      rewardTokenAddress,
       stakeTokenTicker,
-      rewardTokenTicker,
       stakeTokenPrice,
-      rewardTokenPrice,
-      weeklyRewards,
-      usdPerWeek,
       staked_tvl,
       userStaked,
       userUnstaked,
-      earned
+      rewards
     }
+}
+
+async function getRewards(tokenRewards, earnings){
+  const rewardTokenAddress = tokenRewards.gift
+  const newAddresses = [tokenRewards.gift]
+  const rewardRate = tokenRewards.rewardRate;
+  const periodFinish = tokenRewards.periodFinish;
+  await getNewPricesAndTokens(App, tokens, prices, newAddresses, stakingAddress);
+  const rewardToken = getParameterCaseInsensitive(tokens, rewardTokenAddress);
+  const _earned = earnings / 10 ** rewardToken.decimals;
+  const rewardTokenTicker = rewardToken.symbol;
+  const rewardTokenPrice = getParameterCaseInsensitive(prices, rewardTokenAddress)?.usd;
+  const weeklyRewards = (Date.now() / 1000 > periodFinish) ? 0 : rewardRate / 1e18 * 604800;
+  const usdPerWeek = weeklyRewards * rewardTokenPrice;
+  return {
+    rewardTokenAddress : rewardTokenAddress,
+    rewardTokenTicker : rewardTokenTicker,
+    rewardTokenPrice : rewardTokenPrice,
+    weeklyRewards : weeklyRewards,
+    usdPerWeek : usdPerWeek,
+    earned : _earned
+  }
 }
 
 async function printSynthetixPool(App, info, chain="eth") {
@@ -276,23 +284,5 @@ const _1inch_claim = async function(rewardPoolAddr, App) {
       .catch(function() {
         hideLoading()
       })
-  }
-}
-
-async function getRewards(tokenRewards){
-  const rewardTokenAddress = tokenRewards.gift
-  const newAddresses = [tokenRewards.gift]
-  await getNewPricesAndTokens(App, tokens, prices, newAddresses, stakingAddress);
-  const rewardToken = getParameterCaseInsensitive(tokens, rewardTokenAddress);
-  const rewardTokenTicker = rewardToken.symbol;
-  const rewardTokenPrice = getParameterCaseInsensitive(prices, rewardTokenAddress)?.usd;
-  const weeklyRewards = (Date.now() / 1000 > periodFinish) ? 0 : rewardRate / 1e18 * 604800;
-  const usdPerWeek = weeklyRewards * rewardTokenPrice;
-  return {
-    rewardTokenAddress : rewardTokenAddress,
-    rewardTokenTicker : rewardTokenTicker,
-    rewardTokenPrice : rewardTokenPrice,
-    weeklyRewards : weeklyRewards,
-    usdPerWeek : usdPerWeek
   }
 }
